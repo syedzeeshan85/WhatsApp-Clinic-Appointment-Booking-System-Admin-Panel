@@ -1,0 +1,2802 @@
+{
+  "name": "Whatsapp clinic appointment system, V2, Dynamic",
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"phone\": \"{{ $json.messages[0].from }}\",\n  \"text\": \"{{ $json.messages[0].text.body }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        1680
+      ],
+      "id": "ed9a36c9-f494-4ce3-94a0-25f621c419eb",
+      "name": "Extract Message"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        416,
+        1680
+      ],
+      "id": "78c8b295-bfc6-4cd9-88b6-eeb6503cf83f",
+      "name": "Load User Context",
+      "retryOnFail": false,
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "163a8e9e-b1e8-4788-ba78-f9720cb12248",
+              "leftValue": "={{ $json.phone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        640,
+        1680
+      ],
+      "id": "6c29e225-f558-4086-9d86-9454a6363dc6",
+      "name": "User Exists?"
+    },
+    {
+      "parameters": {
+        "tableId": "conversations",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Extract Message').item.json.phone }}"
+            },
+            {
+              "fieldId": "current_state",
+              "fieldValue": "none"
+            },
+            {
+              "fieldId": "current_step",
+              "fieldValue": "none"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "{}"
+            },
+            {
+              "fieldId": "last_message",
+              "fieldValue": "={{ $('Extract Message').item.json.text }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        864,
+        1776
+      ],
+      "id": "b46a4455-368b-4950-967a-21fb872e3420",
+      "name": "Create New User Context",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1088,
+        1680
+      ],
+      "id": "f9394189-a1d7-4bbc-aaca-ff87c4f873f3",
+      "name": "Merge",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2064,
+        1248
+      ],
+      "id": "21026571-f925-4780-8289-4d78c99883d7",
+      "name": "AI Intent Classifier",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "qzxEnLsRVHbGwyck",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an intent classifier for a medical clinic chatbot.\n\nUSER MESSAGE: {{$json.last_message}}\n\nCLASSIFICATION RULES:\n- GREETING: \"hi\", \"hello\", \"salaam\", \"assalam o alaikum\", greetings in any language\n- BOOKING_START: wants to book/schedule appointment (\"book\", \"appointment\", \"waqt chahiye\", \"booking\")\n- INFO_REQUEST: asks about timings, location, fees, doctors (in any language: \"timing\", \"kab\", \"kahan\", \"fees\", \"kitna\", \"location\", \"address\")\n- CANCELLATION: wants to cancel appointment\n- CHITCHAT: casual conversation, praise, gratitude, general questions (\"thank you\", \"shukriya\", \"great service\", \"aur kia hota hai\", \"what else\")\n- UNCLEAR: vague, incomplete, or nonsensical messages\n\nIMPORTANT:\n- Detect intent regardless of language (English, Urdu, Hinglish)\n- General questions about services → CHITCHAT\n- Specific questions (timing/location/fees) → INFO_REQUEST\n- If truly ambiguous → UNCLEAR\n\nReturn ONLY the intent name in CAPS.",
+        "options": {
+          "systemMessage": "=Classify as: GREETING, BOOKING_START, INFO_REQUEST, CANCELLATION, UNCLEAR, CHITCHAT\n\nReturn ONLY the intent name in caps."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1984,
+        1024
+      ],
+      "id": "b4656d82-8698-4e9b-bc48-e3e1e572436b",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "waitBetweenTries": 30
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "GREETING",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c3a28a15-bfa9-41cb-9659-36b4c03174f5"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GREETING"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6801fc43-8e43-43f4-922d-46a10020f00e",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "BOOKING_START",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "BOOKING_START"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3e657b8e-cc05-4aaa-9ad0-1c4ddb8a2214",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "INFO_REQUEST",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "INFO_REQUEST"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "96424925-ccac-4613-8a81-86fa14024512",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "CANCELLATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CANCELLATION"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8102e95b-a0a7-4348-bdac-f8de7466bcd1",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "CHITCHAT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CHITCHAT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2b0a2027-1ae2-4537-a372-754170cceca1",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "UNCLEAR",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "UNCLEAR"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2560,
+        960
+      ],
+      "id": "0922e201-7833-4f3f-86e2-14af300993b5",
+      "name": "Intent Router"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"phone\": \"{{ $json.phone }}\",\n  \"reply\": \"Welcome to Nafees Medical & Maternity Home! 👋\\n\\nI can help you:\\n• Book an appointment\\n• Check clinic timings\\n• Get our location\\n\\nHow can I assist you today?\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4128,
+        448
+      ],
+      "id": "350bfb82-c7d0-40d4-861f-8bd276cd8982",
+      "name": "Welcome Message"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"phone\": \"{{ $('Extract Message').item.json.phone }}\",\n  \"current_state\": \"booking_flow\",\n  \"current_step\": \"awaiting_name\",\n  \"booking_data\": {},\n  \"reply\": \"I'd be happy to help you book an appointment! 😊\\n\\nMay I have your full name please?\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3680,
+        640
+      ],
+      "id": "c1446a3e-b6f7-4869-a354-e238ce2cd3dc",
+      "name": "Start Booking Flow"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_state",
+              "fieldValue": "=booking_flow"
+            },
+            {
+              "fieldId": "current_step",
+              "fieldValue": "=awaiting_name"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "={}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3904,
+        640
+      ],
+      "id": "18755ff0-c5c6-41df-a4be-1a477a143a5c",
+      "name": "Update User State",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"reply\": \"{{ $('Start Booking Flow').item.json.reply }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4128,
+        640
+      ],
+      "id": "19ee50a4-d8e9-49d4-b23f-973885026cd5",
+      "name": "Prepare Reply"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.current_step }}",
+                    "rightValue": "awaiting_name",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4a7cd6a1-553f-40af-b5d1-063d20eeab0b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Awaiting Name"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "69dc0cb5-f7b2-423c-bc95-af8f4ceb59f2",
+                    "leftValue": "={{ $json.current_step }}",
+                    "rightValue": "awaiting_doctor",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Awaiting Doctor"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ccd51a63-7d9e-4e2f-bb2f-d9f6909d16e9",
+                    "leftValue": "={{ $json.current_step }}",
+                    "rightValue": "awaiting_date",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Awaiting Date"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2a8b9779-f1cf-460f-9cad-e5118aa0a7b6",
+                    "leftValue": "={{ $json.current_step }}",
+                    "rightValue": "awaiting_time",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Awaiting Time"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9bf752ef-cd20-4c48-a3e3-961cd3439083",
+                    "leftValue": "={{ $json.current_step }}",
+                    "rightValue": "cancellation_confirm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Confirm Cancellation"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        2560,
+        2480
+      ],
+      "id": "2812a64f-9f50-4db1-9833-ee977d3b5ea9",
+      "name": "Booking Step Router"
+    },
+    {
+      "parameters": {
+        "jsCode": "const userName = $('Merge').item.json.last_message.trim();  // Add .trim() to remove spaces\nconst phone = $('Merge').item.json.phone;\n\nlet bookingData = $('Merge').item.json.booking_data || {};\nif (typeof bookingData === 'string') {\n  try {\n    bookingData = JSON.parse(bookingData);\n  } catch (e) {\n    bookingData = {};\n  }\n}\n\nif (typeof bookingData !== 'object' || bookingData === null) {\n  bookingData = {};\n}\n\n// Clean the name - remove any '=' that might be at the start\nbookingData.name = userName.replace(/^=+/, '');\n\nconsole.log('After saving name:', bookingData);\n\nreturn {\n  json: {\n    phone: phone,\n    booking_data: bookingData,\n    current_state: \"booking_flow\",\n    current_step: \"awaiting_doctor\"\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        2144
+      ],
+      "id": "e36c94cc-36d9-4025-ab8a-8eb6ccd99b09",
+      "name": "Save Name & Get Doctors"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "doctors",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_active",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3456,
+        2144
+      ],
+      "id": "d8493a96-b7c1-4557-b3aa-c66be1998b22",
+      "name": "Get Available Doctors",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const doctors = $input.all().map(item => item.json);\nconst saveNameData = $('Save Name & Get Doctors').first().json;\n\nlet doctorList = `*Please select a doctor:*\n\n`;\n\ndoctors.forEach((doctor, index) => {\n  doctorList += `${index + 1}. *${doctor.name}*\\n   ${doctor.specialization}\\n   Fee: Rs. ${doctor.fees}\\n\\n`;\n});\n\ndoctorList += `Reply with the number or doctor's name.`;\n\nreturn {\n  json: {\n    phone: saveNameData.phone,\n    booking_data: saveNameData.booking_data,\n    current_state: saveNameData.current_state,\n    current_step: saveNameData.current_step,\n    doctors: doctors,\n    reply: doctorList\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        2144
+      ],
+      "id": "490ff266-ff20-427b-bcfb-903bff01e619",
+      "name": "Format Doctor List"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_step",
+              "fieldValue": "={{ $json.current_step }}"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "={{ JSON.stringify($json.booking_data) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3904,
+        2144
+      ],
+      "id": "c1e7a1a4-93a2-4443-ad48-e8ef58d31531",
+      "name": "Update Context - Name Saved",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiOutput = $input.item.json.output;\nconst contextData = $('Merge').first().json;\n\nreturn {\n  json: {\n    intent: aiOutput,\n    phone: contextData.phone,\n    text: contextData.last_message,\n    current_state: contextData.current_state,\n    current_step: contextData.current_step,\n    booking_data: contextData.booking_data\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        1024
+      ],
+      "id": "2dce6b7d-9da6-4c59-9862-d195b1dc9823",
+      "name": "Merge AI with Context"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3b973ddb-f097-4d07-8559-6fdda2842fac",
+              "name": "reply",
+              "value": "={{ $('Format Doctor List').item.json.reply }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4128,
+        2144
+      ],
+      "id": "01322327-5ee4-41ed-8da2-c12d799d46ea",
+      "name": "Restore Reply"
+    },
+    {
+      "parameters": {
+        "jsCode": "const userInput = $('Merge').item.json.last_message.toLowerCase().trim();\nconst phone = $('Merge').item.json.phone;\n\nlet bookingData = $('Merge').item.json.booking_data;\nif (typeof bookingData === 'string') {\n  try {\n    bookingData = JSON.parse(bookingData);\n  } catch (e) {\n    bookingData = {};\n  }\n}\n\n// Ensure bookingData is an object\nif (typeof bookingData !== 'object' || bookingData === null) {\n  bookingData = {};\n}\n\nconsole.log('Booking data before saving doctor:', bookingData);\n\n// Simple mapping - adjust IDs based on your database\nlet selectedDoctorId = null;\n\n// Parse user input\nconst choice = parseInt(userInput);\n\n// Map selection to doctor IDs from your database\n// Adjust these IDs to match your actual doctor IDs in Supabase\nif (choice === 1 || userInput.includes('sarah') || userInput.includes('ahmed')) {\n  selectedDoctorId = 1;  // Sarah Ahmed's ID\n} else if (choice === 2 || userInput.includes('khan')) {\n  selectedDoctorId = 2;  // Khan's ID\n} else {\n  // Default to first doctor\n  selectedDoctorId = 1;\n}\n\nbookingData.doctor_id = selectedDoctorId;\n\nconsole.log('Booking data after saving doctor:', bookingData);\nconsole.log('Selected doctor ID:', selectedDoctorId);\n\nreturn {\n  json: {\n    phone: phone,\n    booking_data: bookingData,\n    current_state: \"booking_flow\",\n    current_step: \"awaiting_date\",\n    reply: \"Great choice! Which date would you prefer?\\n(e.g., 20 Jan or tomorrow)\"\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        2336
+      ],
+      "id": "dd6ca9ca-68cc-4417-a19e-37137cbd0f7b",
+      "name": "Save Doctor Selection"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_step",
+              "fieldValue": "={{ $json.current_step }}"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "={{ JSON.stringify($json.booking_data) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3904,
+        2336
+      ],
+      "id": "77dd0265-8820-4eb8-8533-ed0b594a5567",
+      "name": "Update Context - Doctor Saved",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cbc254c5-bed6-409a-ba00-9debd46af19a",
+              "name": "reply",
+              "value": "={{ $('Save Doctor Selection').item.json.reply }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4128,
+        2336
+      ],
+      "id": "4ee3dd25-1b2e-4240-9ae4-3f23dfba9255",
+      "name": "Restore Reply - Doctor"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst userInput = items[0].json.last_message;\nconst phone = items[0].json.phone;\n\nlet bookingData = items[0].json.booking_data;\nif (typeof bookingData === 'string') {\n  bookingData = JSON.parse(bookingData);\n}\n\nconst doctorId = bookingData.doctor_id;\nconst cleanInput = String(userInput).replace(/^=+/, '').trim();\n\nreturn [{\n  json: {\n    phone: phone,\n    booking_data: bookingData,\n    doctor_id: doctorId,\n    time_slot_selection: cleanInput\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2784,
+        3104
+      ],
+      "id": "343d2f5a-fa21-4025-8b30-22a0a0d66842",
+      "name": "Save Time & Create Confirmation"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_state",
+              "fieldValue": "none"
+            },
+            {
+              "fieldId": "current_step",
+              "fieldValue": "none"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "{}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3904,
+        3104
+      ],
+      "id": "8f2d39cf-8cac-44d3-8f01-63bf80e4c109",
+      "name": "Reset Context",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "faa57ed9-8670-430c-9f5e-3efcaf11565c",
+              "name": "reply",
+              "value": "={{ $('Create Confirmation message').item.json.reply }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4128,
+        3104
+      ],
+      "id": "adace88e-7e2a-4a77-a652-b55dc460c72a",
+      "name": "Restore Confirmation"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "last_message",
+              "fieldValue": "={{ $json.last_message }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        1024
+      ],
+      "id": "65c2ee7a-ca38-4777-a4b4-88e28336316d",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "last_message",
+              "fieldValue": "={{ $('Extract Message').item.json.text }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        864,
+        1584
+      ],
+      "id": "b261037c-fbbb-4211-b821-b7a2d2cf899a",
+      "name": "Update Last Message",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "appointments",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $json.phone }}"
+            },
+            {
+              "fieldId": "patient_name",
+              "fieldValue": "={{ $json.patient_name }}"
+            },
+            {
+              "fieldId": "doctor_id",
+              "fieldValue": "={{ $json.doctor_id }}"
+            },
+            {
+              "fieldId": "appointment_date",
+              "fieldValue": "={{ $json.appointment_date }}"
+            },
+            {
+              "fieldId": "appointment_time",
+              "fieldValue": "={{ $json.appointment_time }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "confirmed"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3680,
+        3104
+      ],
+      "id": "f9b7973b-639f-4733-a3d4-73e58fe59a0a",
+      "name": "Save Appointment to Database",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.text.toLowerCase() }}",
+                    "rightValue": "timing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "ef19f972-5f29-4176-9eda-b12bb7156b88"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Timings"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a5d2fd4b-8013-46ef-8807-b5e24c38e5d1",
+                    "leftValue": "={{ $json.text.toLowerCase() }}",
+                    "rightValue": "(location|where|address|map)",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Location"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b3f455b7-7972-47ab-8097-fd2f435abbfd",
+                    "leftValue": "={{ $json.text.toLowerCase() }}",
+                    "rightValue": "fee",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Fee"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3456,
+        1744
+      ],
+      "id": "8c9ad702-aca7-4122-839c-790af1b5fa72",
+      "name": "Info Type Router"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "doctors",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_active",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3680,
+        1936
+      ],
+      "id": "436a934c-19b0-4897-acdc-65d11721bb04",
+      "name": "Get Doctors & Fees",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const doctors = $input.all().map(item => item.json);\n\nlet feesText = \"💰 Consultation Fees:\\n\\n\";\ndoctors.forEach((doctor) => {\n  feesText += ` ${doctor.name} (${doctor.specialization}): Rs. ${doctor.fees}\\n`;\n});\n\nfeesText += \"\\nWould you like to book an appointment?\";\n\nreturn {\n  json: {\n    reply: feesText\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        1936
+      ],
+      "id": "0f454ec6-e94e-443f-88ad-77439ebb85d6",
+      "name": "Format Fees"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4128,
+        1712
+      ],
+      "id": "b08f4b3f-8c6b-435f-8665-7c584cbd4dd5",
+      "name": "Merge Info Responses"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "appointments",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "confirmed"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2784,
+        928
+      ],
+      "id": "61dccc89-7012-4724-a2fe-3f2ca1ca72a8",
+      "name": "Find User Appointments",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "88079ad3-cf59-4214-83b1-9730c77fa5af",
+              "leftValue": "=={{ $json.id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3008,
+        928
+      ],
+      "id": "d2d87ca2-5520-42f5-8f68-fd3755770a91",
+      "name": "Has Appointments?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "02966748-1417-44fd-a271-8b97f4266c95",
+              "name": "reply",
+              "value": "I couldn't find any upcoming appointments for your number.\\n\\nWould you like to book an appointment?",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3904,
+        1024
+      ],
+      "id": "84b51af4-b510-46f2-9a90-41ab3ff5e5ed",
+      "name": "No Appointments Message"
+    },
+    {
+      "parameters": {
+        "jsCode": "const appointments = $input.all().map(item => item.json);\nconst appointment = appointments[0];\n\nconst doctorName = appointment.doctor_id === 1 ? \"Dr. Sarah Ahmed\" : \"Dr. Khan\";\n\nconst message = \"I found your appointment:\\n\\n\" +\n  \"📋 \" + doctorName + \"\\n\" +\n  \"📅 \" + appointment.appointment_date + \"\\n\" +\n  \"🕐 \" + appointment.appointment_time + \"\\n\\n\" +\n  \"Are you sure you want to cancel?\\nReply 'Yes' to confirm or 'No' to keep it.\";\n\nreturn {\n  json: {\n    phone: appointment.phone,\n    appointment_id: appointment.id,\n    reply: message\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        832
+      ],
+      "id": "f0715e61-1030-46d7-b480-999544f9ef70",
+      "name": "Format Appointment Details"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3ad8723f-7ee3-4161-843b-822dc15e02b7",
+              "leftValue": "={{ $('Merge').item.json.last_message.toLowerCase() }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3008,
+        2816
+      ],
+      "id": "92b04864-b15e-443b-9651-b37f0f631df7",
+      "name": "User Confirmed?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const phone = $('Reload User Context for Cancellation').item.json.phone;\nlet bookingData = $('Reload User Context for Cancellation').item.json.booking_data;\n\nif (typeof bookingData === 'string') {\n  bookingData = JSON.parse(bookingData);\n}\n\nreturn {\n  json: {\n    phone: phone,\n    appointment_id: bookingData.appointment_id\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        2720
+      ],
+      "id": "dd8017c3-5fe5-4b2d-829a-b106c19a66be",
+      "name": "Get Appointment ID"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "appointments",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.appointment_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "cancelled"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3456,
+        2720
+      ],
+      "id": "a81bb4b3-4008-418f-8533-10b8c19f28e0",
+      "name": "Cancel Appointment in DB",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_state",
+              "fieldValue": "none"
+            },
+            {
+              "fieldId": "current_step",
+              "fieldValue": "none"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "{}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3680,
+        2720
+      ],
+      "id": "6fff45fe-f32c-405d-a188-ef0f93f3f3d7",
+      "name": "Reset After Cancellation",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"phone\": \"={{ $('Reset After Cancellation').item.json.phone }}\",\n  \"reply\": \"✅ Your appointment has been cancelled successfully.\\n\\nFeel free to book again anytime!\\n\\nReply with:\\n• 'Book appointment' to schedule a new one\\n• 'Timings' to check our hours\\n• 'Location' to find us\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3904,
+        2720
+      ],
+      "id": "cd34bec3-5166-4582-903f-2b591ea1a3be",
+      "name": "Cancellation Success"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_state",
+              "fieldValue": "none"
+            },
+            {
+              "fieldId": "current_step",
+              "fieldValue": "none"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "{}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3680,
+        2912
+      ],
+      "id": "a6a30145-eb71-4df0-b4f4-91ec4d6882f5",
+      "name": "Reset After Keeping",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"phone\": \"={{ $('Reset After Keeping').item.json.phone }}\",\n  \"reply\": \"👍 No problem! Your appointment is still confirmed.\\n\\nWe look forward to seeing you!\\n\\nReply 'Cancel' if you change your mind.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3904,
+        2912
+      ],
+      "id": "075d7274-e1c2-418e-8601-4812baa2de60",
+      "name": "Keep Appointment Message"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4128,
+        2816
+      ],
+      "id": "066e54ec-dbd3-4541-8d16-1c0b60c94dcb",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"phone\": \"{{ $('Update State & Pass Data').item.json.phone }}\",\n  \"reply\": \"{{ $('Update State & Pass Data').item.json.reply }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3904,
+        832
+      ],
+      "id": "3421b429-0e30-4490-af58-7c418ffaaf53",
+      "name": "Prepare Cancellation Reply"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        4128,
+        928
+      ],
+      "id": "8c88f8dd-066d-451d-95ee-3070d9b5d124",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const phone = $json.phone;\nconst appointmentId = $json.appointment_id;\nconst reply = $json.reply;\n\nreturn {\n  json: {\n    phone: phone,\n    appointment_id: appointmentId,\n    reply: reply,\n    // Pass the state data directly\n    current_state: \"booking_flow\",\n    current_step: \"cancellation_confirm\",\n    booking_data: { appointment_id: appointmentId }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3456,
+        832
+      ],
+      "id": "265037d3-ba56-4aad-9111-3b0cbce4e508",
+      "name": "Update State & Pass Data"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4b26b64b-3994-4a98-a3ea-7d8b3acf99c1",
+              "leftValue": "={{ $json.current_state }}",
+              "rightValue": "booking_flow",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1536,
+        1680
+      ],
+      "id": "c70a0849-42c4-4329-a4f7-0c253f1f0c46",
+      "name": "Check Booking State"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        1680
+      ],
+      "id": "cddddf31-cdbd-4892-afc6-dd239609fa5e",
+      "name": "WhatsApp Trigger",
+      "webhookId": "d8dd3114-6156-43a3-846c-6b3fe37153db",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "RTzHk6wcp0D2ONlI",
+          "name": "WhatsApp OAuth account V2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "958548924007215",
+        "recipientPhoneNumber": "={{ $json.phone }}",
+        "textBody": "={{ $json.reply }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [
+        4576,
+        1728
+      ],
+      "id": "40eaf1cf-7270-4027-a173-2d3712a6bcf3",
+      "name": "Send message",
+      "webhookId": "ed51b48b-a853-41cb-9ee7-eaab3b4a34e1",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "gxmcJeeN7vAUOoXU",
+          "name": "WhatsApp account V2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get phone from current data with multiple fallback attempts\nlet phone = $input.item.json.phone;\n\n// If phone looks invalid (not a number), try other sources\nif (!phone || phone.length > 20 || !/^\\d+$/.test(phone)) {\n  // Try to get from earlier nodes\n  const mergeData = $('Merge').first();\n  if (mergeData && mergeData.json.phone) {\n    phone = mergeData.json.phone;\n  }\n  \n  // If still not found, try Extract Message\n  if (!phone || !/^\\d+$/.test(phone)) {\n    const extractData = $('Extract Message').first();\n    if (extractData && extractData.json.phone) {\n      phone = extractData.json.phone;\n    }\n  }\n}\n\n// Clean the phone number (remove any non-digits except +)\nif (phone) {\n  phone = phone.toString().replace(/[^\\d+]/g, '');\n}\n\nconst reply = $input.item.json.reply || 'Error: No message';\n\nconsole.log('=== WHATSAPP SEND DEBUG ===');\nconsole.log('Final phone:', phone);\nconsole.log('Reply:', reply);\n\nreturn [{\n  json: {\n    phone: phone,\n    reply: reply\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4352,
+        1728
+      ],
+      "id": "71e513a3-5879-4f0e-a1db-f8abc7ff2b26",
+      "name": "Prepare WhatsApp Send"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.item.json;\n\nconsole.log('=== CURRENT STATE CHECK ===');\nconsole.log('Phone:', data.phone);\nconsole.log('Current State:', data.current_state);\nconsole.log('Current Step:', data.current_step);\nconsole.log('Last Message:', data.last_message);\nconsole.log('Booking Data:', JSON.stringify(data.booking_data));\n\nreturn [$input.item];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        1680
+      ],
+      "id": "19e1d2e1-58aa-4500-a55e-8d0f1475bae8",
+      "name": "Debug State"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_state",
+              "fieldValue": "=booking_flow"
+            },
+            {
+              "fieldId": "current_step",
+              "fieldValue": "=cancellation_confirm"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "={{ JSON.stringify({ appointment_id: $json.appointment_id }) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3680,
+        832
+      ],
+      "id": "db5a70c6-3201-4788-bdd5-2be715751b86",
+      "name": "Save Cancellation State to DB",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "keyValue": "={{ $('Merge').item.json.phone }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2784,
+        2816
+      ],
+      "id": "dd960646-0027-4609-b410-ae04b427a0e7",
+      "name": "Reload User Context for Cancellation2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "hospitals",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "1"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3680,
+        1664
+      ],
+      "id": "cb8621ff-60e2-4cdc-8ce9-981cc65742b4",
+      "name": "Get Hospital Operating Hours",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const hospital = $input.item.json;\n\nconst reply = `🕒 *Clinic Timings*\n\n${hospital.operating_hours}\n\n📍 ${hospital.address}\n📞 ${hospital.phone}\n\nWould you like to book an appointment?`;\n\nreturn {\n  json: {\n    reply: reply\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        1552
+      ],
+      "id": "83ce1791-e1d9-468c-a368-5b524ad523ef",
+      "name": "Format Timings"
+    },
+    {
+      "parameters": {
+        "jsCode": "const hospital = $input.item.json;\n\nconst reply = `📍 *${hospital.name}*\n\n${hospital.address}\n\n📞 ${hospital.phone}\n✉️ ${hospital.email || 'Contact us for more info'}\n\nGoogle Maps: https://maps.app.goo.gl/PL8SEe2pCezrMzLN8`;\n\nreturn {\n  json: {\n    reply: reply\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        1744
+      ],
+      "id": "cb9e7fff-25cb-486d-971f-2ed3c8b2f82e",
+      "name": "Format Location"
+    },
+    {
+      "parameters": {
+        "jsCode": "const userInput = $('Merge').item.json.last_message;\nconst phone = $('Merge').item.json.phone;\n\nlet bookingData = $('Merge').item.json.booking_data;\nif (typeof bookingData === 'string') {\n  bookingData = JSON.parse(bookingData);\n}\n\n// Convert relative dates\nlet dateInput = userInput.trim().toLowerCase();\nconst today = new Date();\nlet selectedDate;\n\nif (dateInput === 'today') {\n  selectedDate = today;\n  dateInput = today.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });\n} else if (dateInput === 'tomorrow') {\n  selectedDate = new Date(today);\n  selectedDate.setDate(selectedDate.getDate() + 1);\n  dateInput = selectedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });\n} else {\n  // Try to parse the date\n  selectedDate = new Date(dateInput);\n  if (isNaN(selectedDate)) {\n    selectedDate = today;\n  }\n}\n\nbookingData.date = dateInput;\n\n// Get day of week (e.g., \"Monday\", \"Tuesday\")\nconst dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });\n\nreturn {\n  json: {\n    phone: phone,\n    booking_data: bookingData,\n    doctor_id: bookingData.doctor_id,\n    day_of_week: dayOfWeek,\n    selected_date: dateInput\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3232,
+        2528
+      ],
+      "id": "e4a2c8e5-aac7-491f-9f52-5fc3f9949876",
+      "name": "Get Day of Week"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "schedules",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.doctor_id }}"
+            },
+            {
+              "keyName": "day_of_week",
+              "condition": "eq",
+              "keyValue": "={{ $json.day_of_week }}"
+            },
+            {
+              "keyName": "is_available",
+              "condition": "eq",
+              "keyValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3456,
+        2528
+      ],
+      "id": "6b95a279-04de-4e2c-96c6-decd264657a5",
+      "name": "Get Doctor Schedule for Day",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const schedules = $input.all();\nconst prevData = $('Get Day of Week').item.json;\n\n// Check if doctor has schedule for this day\nif (!schedules || schedules.length === 0) {\n  return {\n    json: {\n      phone: prevData.phone,\n      booking_data: prevData.booking_data,\n      current_state: \"booking_flow\",\n      current_step: \"awaiting_date\",\n      reply: `Sorry, the doctor is not available on ${prevData.day_of_week}. Please choose another date.`\n    }\n  };\n}\n\nconst schedule = schedules[0].json;\n\n// Function to convert time to minutes\nfunction timeToMinutes(timeStr) {\n  const [hours, minutes] = timeStr.split(':').map(Number);\n  return hours * 60 + minutes;\n}\n\n// Function to convert minutes back to time\nfunction minutesToTime(mins) {\n  const hours = Math.floor(mins / 60);\n  const minutes = mins % 60;\n  const period = hours >= 12 ? 'PM' : 'AM';\n  const displayHours = hours % 12 || 12;\n  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;\n}\n\n// Parse schedule times\nconst startMins = timeToMinutes(schedule.start_time);\nconst endMins = timeToMinutes(schedule.end_time);\nconst breakStartMins = schedule.break_start ? timeToMinutes(schedule.break_start) : null;\nconst breakEndMins = schedule.break_end ? timeToMinutes(schedule.break_end) : null;\n\n// Get consultation duration (default 30 mins)\nconst slotDuration = 30;\n\n// Generate time slots\nconst slots = [];\nlet currentTime = startMins;\n\nwhile (currentTime < endMins) {\n  // Skip break time\n  if (breakStartMins && currentTime >= breakStartMins && currentTime < breakEndMins) {\n    currentTime = breakEndMins;\n    continue;\n  }\n  \n  // Add slot if it doesn't overlap with break\n  if (!breakStartMins || currentTime + slotDuration <= breakStartMins || currentTime >= breakEndMins) {\n    slots.push(minutesToTime(currentTime));\n  }\n  \n  currentTime += slotDuration;\n}\n\n// Store slots in booking_data for later use\nlet bookingData = prevData.booking_data;\nif (typeof bookingData === 'string') {\n  bookingData = JSON.parse(bookingData);\n}\nbookingData.available_slots = slots;\n\n// Format reply\nlet reply = `*Available time slots for ${prevData.day_of_week}, ${prevData.selected_date}:*\n\n`;\n\nslots.forEach((slot, index) => {\n  reply += `${index + 1}. ${slot}\\n`;\n});\n\nreply += `\\nReply with the number.`;\n\nreturn {\n  json: {\n    phone: prevData.phone,\n    booking_data: bookingData,\n    current_state: \"booking_flow\",\n    current_step: \"awaiting_time\",\n    available_slots: slots,\n    reply: reply\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        2528
+      ],
+      "id": "f64da873-fb4a-4179-bc59-39cd64743839",
+      "name": "Generate Time Slots from Schedule"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_step",
+              "fieldValue": "=awaiting_time"
+            },
+            {
+              "fieldId": "booking_data",
+              "fieldValue": "={{ JSON.stringify($json.booking_data) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3904,
+        2528
+      ],
+      "id": "ffd90af9-13cd-4475-8823-5ad9a412b382",
+      "name": "Update Context - Date & Slots Saved",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "doctors",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $json.doctor_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3008,
+        3104
+      ],
+      "id": "d0e88176-2a62-4afb-8788-aae0932a19ba",
+      "name": "Get Doctor Name",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const prevData = $('Generate Time Slots from Schedule').item.json;\n\nreturn {\n  json: {\n    reply: prevData.reply\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4128,
+        2528
+      ],
+      "id": "38207615-dfda-461b-951f-2d4126861402",
+      "name": "Format Date Reply"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "hospitals",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "1"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3232,
+        3104
+      ],
+      "id": "8a85e359-3bf9-4f54-9006-be936c37c9da",
+      "name": "Get Hospital for Confirmation",
+      "credentials": {
+        "supabaseApi": {
+          "id": "SPDchjhUuzVuZ1pf",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get inputs\nconst doctorData = $('Get Doctor Name').first();\nconst hospitalData = $('Get Hospital for Confirmation').first();\nconst prevData = $('Save Time & Create Confirmation').first();\n\n// Check if data exists\nif (!doctorData || !hospitalData || !prevData) {\n  throw new Error('Missing input data');\n}\n\nconst doctor = doctorData.json;\nconst hospital = hospitalData.json;\nconst prev = prevData.json;\n\nlet bookingData = prev.booking_data;\nif (typeof bookingData === 'string') {\n  bookingData = JSON.parse(bookingData);\n}\n\nconst cleanName = bookingData.name || 'Unknown';\nconst cleanDate = bookingData.date || 'Not set';\n\n// Get actual time from stored slots\nlet selectedTime = `Slot ${prev.time_slot_selection}`;\n\nif (bookingData.available_slots && bookingData.available_slots.length > 0) {\n  const slotIndex = parseInt(prev.time_slot_selection) - 1;\n  if (slotIndex >= 0 && slotIndex < bookingData.available_slots.length) {\n    selectedTime = bookingData.available_slots[slotIndex];\n  }\n}\n\nconst confirmationMsg = `✅ *Appointment Confirmed!*\n\n📋 *Details:*\n👤 Name: ${cleanName}\n👨‍⚕️ Doctor: ${doctor.name}\n📅 Date: ${cleanDate}\n🕐 Time: ${selectedTime}\n\n📍 ${hospital.name}\n${hospital.address}\n📞 ${hospital.phone}\n\nSee you soon! 👋`;\n\nreturn [{\n  json: {\n    phone: prev.phone,\n    booking_data: {},\n    current_state: \"none\",\n    current_step: \"none\",\n    reply: confirmationMsg,\n    patient_name: cleanName,\n    doctor_id: doctor.id,\n    appointment_date: cleanDate,\n    appointment_time: selectedTime\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3456,
+        3104
+      ],
+      "id": "e6c1a2d6-4c6a-4655-a741-e10745ed70ac",
+      "name": "Create Confirmation message"
+    },
+    {
+      "parameters": {
+        "jsCode": "const reply = `I'm not quite sure what you're looking for.\n\nI can help you with:\n- Booking an appointment\n- Checking our timings\n- Finding our location\n- Consultation fees\n\nHow can I assist you?`;\n\nreturn {\n  json: {\n    reply: reply\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4128,
+        1392
+      ],
+      "id": "4659069f-4f1f-4b36-9d66-26869c8d5d36",
+      "name": "Unclear Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const reply = `Thank you! \n\nFeel free to reach out anytime. Have a great day! 😊`;\n\nreturn {\n  json: {\n    reply: reply\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4128,
+        1200
+      ],
+      "id": "cbb5d01a-9033-49ee-8f54-feaa55964831",
+      "name": "Chitchat Response"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract Message": {
+      "main": [
+        [
+          {
+            "node": "Load User Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load User Context": {
+      "main": [
+        [
+          {
+            "node": "User Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Exists?": {
+      "main": [
+        [
+          {
+            "node": "Update Last Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create New User Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New User Context": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Debug State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Intent Classifier": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Merge AI with Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intent Router": {
+      "main": [
+        [
+          {
+            "node": "Welcome Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Start Booking Flow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Info Type Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find User Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Chitchat Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unclear Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Welcome Message": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Booking Flow": {
+      "main": [
+        [
+          {
+            "node": "Update User State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update User State": {
+      "main": [
+        [
+          {
+            "node": "Prepare Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Reply": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booking Step Router": {
+      "main": [
+        [
+          {
+            "node": "Save Name & Get Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Doctor Selection",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Day of Week",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Time & Create Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reload User Context for Cancellation2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Name & Get Doctors": {
+      "main": [
+        [
+          {
+            "node": "Get Available Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Available Doctors": {
+      "main": [
+        [
+          {
+            "node": "Format Doctor List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Doctor List": {
+      "main": [
+        [
+          {
+            "node": "Update Context - Name Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Context - Name Saved": {
+      "main": [
+        [
+          {
+            "node": "Restore Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge AI with Context": {
+      "main": [
+        [
+          {
+            "node": "Intent Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Doctor Selection": {
+      "main": [
+        [
+          {
+            "node": "Update Context - Doctor Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Context - Doctor Saved": {
+      "main": [
+        [
+          {
+            "node": "Restore Reply - Doctor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Reply - Doctor": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Time & Create Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Get Doctor Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Reply": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset Context": {
+      "main": [
+        [
+          {
+            "node": "Restore Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Last Message": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Appointment to Database": {
+      "main": [
+        [
+          {
+            "node": "Reset Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Info Type Router": {
+      "main": [
+        [
+          {
+            "node": "Get Hospital Operating Hours",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Hospital Operating Hours",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Doctors & Fees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Doctors & Fees": {
+      "main": [
+        [
+          {
+            "node": "Format Fees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Fees": {
+      "main": [
+        [
+          {
+            "node": "Merge Info Responses",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Info Responses": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find User Appointments": {
+      "main": [
+        [
+          {
+            "node": "Has Appointments?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Appointments?": {
+      "main": [
+        [
+          {
+            "node": "Format Appointment Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Appointments Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Appointment Details": {
+      "main": [
+        [
+          {
+            "node": "Update State & Pass Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Appointments Message": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "User Confirmed?": {
+      "main": [
+        [
+          {
+            "node": "Get Appointment ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reset After Keeping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Appointment ID": {
+      "main": [
+        [
+          {
+            "node": "Cancel Appointment in DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel Appointment in DB": {
+      "main": [
+        [
+          {
+            "node": "Reset After Cancellation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset After Cancellation": {
+      "main": [
+        [
+          {
+            "node": "Cancellation Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset After Keeping": {
+      "main": [
+        [
+          {
+            "node": "Keep Appointment Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancellation Success": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep Appointment Message": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Cancellation Reply": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update State & Pass Data": {
+      "main": [
+        [
+          {
+            "node": "Save Cancellation State to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Booking State": {
+      "main": [
+        [
+          {
+            "node": "Booking Step Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WhatsApp Send": {
+      "main": [
+        [
+          {
+            "node": "Send message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug State": {
+      "main": [
+        [
+          {
+            "node": "Check Booking State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Cancellation State to DB": {
+      "main": [
+        [
+          {
+            "node": "Prepare Cancellation Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reload User Context for Cancellation2": {
+      "main": [
+        [
+          {
+            "node": "User Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Hospital Operating Hours": {
+      "main": [
+        [
+          {
+            "node": "Format Timings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Location",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Timings": {
+      "main": [
+        [
+          {
+            "node": "Merge Info Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Location": {
+      "main": [
+        [
+          {
+            "node": "Merge Info Responses",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get Day of Week": {
+      "main": [
+        [
+          {
+            "node": "Get Doctor Schedule for Day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Doctor Schedule for Day": {
+      "main": [
+        [
+          {
+            "node": "Generate Time Slots from Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Time Slots from Schedule": {
+      "main": [
+        [
+          {
+            "node": "Update Context - Date & Slots Saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Context - Date & Slots Saved": {
+      "main": [
+        [
+          {
+            "node": "Format Date Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Doctor Name": {
+      "main": [
+        [
+          {
+            "node": "Get Hospital for Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Date Reply": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Hospital for Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Create Confirmation message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Confirmation message": {
+      "main": [
+        [
+          {
+            "node": "Save Appointment to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unclear Response": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chitchat Response": {
+      "main": [
+        [
+          {
+            "node": "Prepare WhatsApp Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "8f70f655-12b3-4145-b6b8-e39170963298",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "380f7291056b0a51ec01e828e562d4690634f0b9099259e1dbf891d46b2a715f"
+  },
+  "id": "CyNCocFTR8sfyeqzMjZ4X",
+  "tags": []
+}
